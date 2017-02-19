@@ -19,6 +19,7 @@ public class BitmapMesh : MonoBehaviour {
 	private short[,] imageData;
 	private List<List<Vector2>> outlines;
 	private HashSet<int> visitedCells;
+	private List<Vector3> dbg = new List<Vector3> ();
 
 	List<LineSegment> t = new List<LineSegment>();
 
@@ -38,6 +39,10 @@ public class BitmapMesh : MonoBehaviour {
 		}
 
 		for (int i = 0; i < outlines.Count; i++) {
+			if (i==0)
+				dbg = new List<Vector3> ();
+			List<Vector2> outline = outlines [i];
+
 			GameObject poolObject = new GameObject ("Pool" + i.ToString ());
 			MeshFilter poolObjectMeshFilter = poolObject.AddComponent<MeshFilter> ();
 			MeshRenderer poolObjectMeshRenderer = poolObject.AddComponent<MeshRenderer> ();
@@ -46,50 +51,64 @@ public class BitmapMesh : MonoBehaviour {
 			MeshFilter poolBorderObjectMeshFilter = poolBorderObject.AddComponent<MeshFilter> ();
 			MeshRenderer poolBorderObjectMeshRenderer = poolBorderObject.AddComponent<MeshRenderer> ();
 
+//			GameObject poolWallObject = new GameObject ("PoolWall" + i.ToString ());
+//			MeshFilter poolWallObjectMeshFilter = poolBorderObject.AddComponent<MeshFilter> ();
+//			MeshRenderer poolWallObjectMeshRenderer = poolBorderObject.AddComponent<MeshRenderer> ();
+
 			poolObject.transform.SetParent (transform);
 			poolBorderObject.transform.SetParent (transform);
 
 			Mesh poolBorderMesh = new Mesh ();
 			List<Vector3> poolBorderVertices = new List<Vector3> ();
-			List<int> poolBorderIndices = new List<int> ();
-			for (int j = 0; j < outlines [i].Count - 1; j++) {
-				Vector3 p0 = outlines [i] [j];
-				Vector3 p1 = outlines [i] [j + 1];
-				Vector3 d = Vector3.Cross ((p0 - p1).normalized, Vector3.forward);
+			List<int> poolBorderTriangles = new List<int> ();
+			int li0 = 0;
+			int li1 = 0;
 
-				Vector3 p2 = p0 + d * borderSize;
-				Vector3 p3 = p1 + d * borderSize;
+			for (int j = 0; j < outline.Count; j++) {
+				int mid = j;
+				int fw = (j + 1) % (outline.Count);
+				int bw = (outline.Count - 1 + j) % (outline.Count);
 
-				poolBorderVertices.Add (p0);
-				poolBorderVertices.Add (p1);
-				poolBorderVertices.Add (p2);
-				poolBorderVertices.Add (p3);
+				Vector3 pMid = outline[mid];
+				Vector3 pFw = outline[fw];
+				Vector3 pBw = outline [bw];
 
-				poolBorderIndices.Add (poolBorderVertices.Count - 4);
-				poolBorderIndices.Add (poolBorderVertices.Count - 2);
-				poolBorderIndices.Add (poolBorderVertices.Count - 3);
+				Vector3 d0 = Vector3.Cross ((pFw - pMid).normalized, Vector3.forward);
+				Vector3 d1 = Vector3.Cross ((pBw - pMid).normalized, Vector3.forward);
 
-				poolBorderIndices.Add (poolBorderVertices.Count - 2);
-				poolBorderIndices.Add (poolBorderVertices.Count - 1);
-				poolBorderIndices.Add (poolBorderVertices.Count - 3);
+				Vector3 p0 = pMid - d0 * borderSize;
+				Vector3 p1 = pMid + d1 * borderSize;
+				Vector3 pm = p0 + ((p1 - p0) * 0.5f);
+
+				poolBorderVertices.Add (pMid);
+				poolBorderVertices.Add (pm);
 
 				if (j > 0) {
-					poolBorderIndices.Add (poolBorderVertices.Count - 4);
-					poolBorderIndices.Add (poolBorderVertices.Count - 5);
-					poolBorderIndices.Add (poolBorderVertices.Count - 2);
+					poolBorderTriangles.Add (poolBorderVertices.Count - 2);
+					poolBorderTriangles.Add (li0);
+					poolBorderTriangles.Add (li1);
+
+					poolBorderTriangles.Add (poolBorderVertices.Count - 2);
+					poolBorderTriangles.Add (li1);
+					poolBorderTriangles.Add (poolBorderVertices.Count - 1);
 				}
+
+				li0 = poolBorderVertices.Count - 2;
+				li1 = poolBorderVertices.Count - 1;
 			}
 
-			poolBorderIndices.Add (poolBorderVertices.Count - 1);
-			poolBorderIndices.Add (0);
-			poolBorderIndices.Add (poolBorderVertices.Count - 3);
+			// connect last triangles of the loop
+			poolBorderTriangles.Add (0);
+			poolBorderTriangles.Add (poolBorderVertices.Count - 1);
+			poolBorderTriangles.Add (1);
 
-			poolBorderIndices.Add (poolBorderVertices.Count - 1);
-			poolBorderIndices.Add (2);
-			poolBorderIndices.Add (0);
+			poolBorderTriangles.Add (0);
+			poolBorderTriangles.Add (poolBorderVertices.Count - 2);
+			poolBorderTriangles.Add (poolBorderVertices.Count - 1);
+
 
 			poolBorderMesh.SetVertices (poolBorderVertices);
-			poolBorderMesh.SetTriangles (poolBorderIndices, 0);
+			poolBorderMesh.SetTriangles (poolBorderTriangles, 0);
 			poolBorderMesh.RecalculateBounds ();
 			poolBorderMesh.RecalculateNormals ();
 
@@ -98,12 +117,12 @@ public class BitmapMesh : MonoBehaviour {
 
 			poolObjectMeshRenderer.material = poolMaterial;
 
-			TriangulatorSimple ts = new TriangulatorSimple (outlines[i].ToArray ());
+			TriangulatorSimple ts = new TriangulatorSimple (outline.ToArray ());
 			int[] triangles = ts.Triangulate ();
 
 			List<Vector3> vertices = new List<Vector3>();
-			for (int j = 0; j < outlines[i].Count; j++) {
-				vertices.Add (outlines [i][j]);
+			for (int j = 0; j < outline.Count; j++) {
+				vertices.Add (outline[j]);
 			}
 
 			Mesh poolMesh = new Mesh ();
@@ -271,6 +290,10 @@ public class BitmapMesh : MonoBehaviour {
 	}
 
 	private void OnDrawGizmos() {
+//		for (int i = 0; i < dbg.Count; i++) {
+//			Gizmos.color = Color.black;
+//			Gizmos.DrawCube (dbg [i], Vector3.one * 0.05f);	
+//		}
 //		if (outlines == null) {
 //			return;
 //		}
