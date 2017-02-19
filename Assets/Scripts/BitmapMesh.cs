@@ -9,8 +9,10 @@ public class BitmapMesh : MonoBehaviour {
 	[SerializeField] private Texture2D bitmapTexture = null;
 	[SerializeField] private Material poolMaterial = null;
 	[SerializeField] private Material poolBorderMaterial = null;
+	[SerializeField] private Material poolWallMaterial = null;
 
 	[SerializeField] private float borderSize = 0.1f;
+	[SerializeField] private float poolHeight = 1.0f;
 	[SerializeField] private float minPointDistance = 0.2f;
 	[SerializeField] private float scaleX = 0.01f;
 	[SerializeField] private float scaleY = 0.01f;
@@ -49,14 +51,27 @@ public class BitmapMesh : MonoBehaviour {
 			MeshFilter poolBorderObjectMeshFilter = poolBorderObject.AddComponent<MeshFilter> ();
 			MeshRenderer poolBorderObjectMeshRenderer = poolBorderObject.AddComponent<MeshRenderer> ();
 
+			GameObject poolWallObject = new GameObject ("PoolWall" + i.ToString ());
+			MeshFilter poolWallObjectMeshFilter = poolWallObject.AddComponent<MeshFilter> ();
+			MeshRenderer poolWallObjectMeshRenderer = poolWallObject.AddComponent<MeshRenderer> ();
+
 			poolObject.transform.SetParent (transform);
 			poolBorderObject.transform.SetParent (transform);
+			poolWallObject.transform.SetParent (transform);
 
 			Mesh poolBorderMesh = new Mesh ();
 			List<Vector3> poolBorderVertices = new List<Vector3> ();
 			List<int> poolBorderTriangles = new List<int> ();
+
+			Mesh poolWallMesh = new Mesh ();
+			List<Vector3> poolWallVertices = new List<Vector3> ();
+			List<int> poolWallTriangles = new List<int> ();
+
 			int li0 = 0;
 			int li1 = 0;
+
+			int li2 = 0;
+			int li3 = 0;
 
 			for (int j = 0; j < outline.Count; j++) {
 				int mid = j;
@@ -74,8 +89,11 @@ public class BitmapMesh : MonoBehaviour {
 				Vector3 p1 = pMid + d1 * borderSize;
 				Vector3 pm = p0 + ((p1 - p0) * 0.5f);
 
-				poolBorderVertices.Add (pMid);
-				poolBorderVertices.Add (pm);
+				poolBorderVertices.Add (pMid + Vector3.forward * - poolHeight);
+				poolBorderVertices.Add (pm + Vector3.forward * - poolHeight);
+
+				poolWallVertices.Add (pMid);
+				poolWallVertices.Add (pMid + Vector3.forward * - poolHeight);
 
 				if (j > 0) {
 					poolBorderTriangles.Add (poolBorderVertices.Count - 2);
@@ -85,13 +103,24 @@ public class BitmapMesh : MonoBehaviour {
 					poolBorderTriangles.Add (poolBorderVertices.Count - 2);
 					poolBorderTriangles.Add (li1);
 					poolBorderTriangles.Add (poolBorderVertices.Count - 1);
+
+					poolWallTriangles.Add (poolWallVertices.Count - 2);
+					poolWallTriangles.Add (li2);
+					poolWallTriangles.Add (li3);
+
+					poolWallTriangles.Add (poolWallVertices.Count - 2);
+					poolWallTriangles.Add (li3);
+					poolWallTriangles.Add (poolWallVertices.Count - 1);
 				}
 
 				li0 = poolBorderVertices.Count - 2;
 				li1 = poolBorderVertices.Count - 1;
+
+				li2 = poolWallVertices.Count - 2;
+				li3 = poolWallVertices.Count - 1;
 			}
 
-			// connect last triangles of the loop
+			// connect last border triangles of the loop
 			poolBorderTriangles.Add (0);
 			poolBorderTriangles.Add (poolBorderVertices.Count - 1);
 			poolBorderTriangles.Add (1);
@@ -100,14 +129,31 @@ public class BitmapMesh : MonoBehaviour {
 			poolBorderTriangles.Add (poolBorderVertices.Count - 2);
 			poolBorderTriangles.Add (poolBorderVertices.Count - 1);
 
+			// connect last wall triangles of the loop
+			poolWallTriangles.Add (0);
+			poolWallTriangles.Add (poolWallVertices.Count - 1);
+			poolWallTriangles.Add (1);
+
+			poolWallTriangles.Add (0);
+			poolWallTriangles.Add (poolWallVertices.Count - 2);
+			poolWallTriangles.Add (poolWallVertices.Count - 1);
+
 
 			poolBorderMesh.SetVertices (poolBorderVertices);
 			poolBorderMesh.SetTriangles (poolBorderTriangles, 0);
 			poolBorderMesh.RecalculateBounds ();
 			poolBorderMesh.RecalculateNormals ();
 
+			poolWallMesh.SetVertices (poolWallVertices);
+			poolWallMesh.SetTriangles (poolWallTriangles, 0);
+			poolWallMesh.RecalculateBounds ();
+			poolWallMesh.RecalculateNormals ();
+
 			poolBorderObjectMeshRenderer.material = poolBorderMaterial;
 			poolBorderObjectMeshFilter.mesh = poolBorderMesh;
+
+			poolWallObjectMeshRenderer.material = poolWallMaterial;
+			poolWallObjectMeshFilter.mesh = poolWallMesh;
 
 			poolObjectMeshRenderer.material = poolMaterial;
 
