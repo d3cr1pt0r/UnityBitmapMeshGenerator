@@ -7,51 +7,113 @@ using Delaunay.Geo;
 public class BitmapMesh : MonoBehaviour {
 
 	[SerializeField] private Texture2D bitmapTexture = null;
-	[SerializeField] private MeshFilter meshFilter = null;
-	[SerializeField] private TextMesh textMesh = null;
+	[SerializeField] private Material poolMaterial = null;
+	[SerializeField] private Material poolBorderMaterial = null;
 
+	[SerializeField] private float borderSize = 0.1f;
 	[SerializeField] private float minPointDistance = 0.2f;
 	[SerializeField] private float scaleX = 0.01f;
 	[SerializeField] private float scaleY = 0.01f;
 
 	private Mesh mesh;
-
 	private short[,] imageData;
-	private List<Vector2> outline;
-	private List<Vector2> filteredOutline;
+	private List<List<Vector2>> outlines;
 	private HashSet<int> visitedCells;
 
 	List<LineSegment> t = new List<LineSegment>();
 
-	public void GenerateEdgePoints() {
+	public void GenerateOutlines() {
 		if (bitmapTexture == null) {
 			return;
 		}
-		outline = new List<Vector2> ();
-		visitedCells = new HashSet<int> ();
 
 		imageData = ReadTextureToMemory (bitmapTexture);
-		TraceEdge (imageData);
-		filteredOutline = ApplyMinPointDistanceToOutline (outline, minPointDistance);
+		outlines = TraceEdge (imageData);
+		GenerateMeshesFromOutlines (outlines);
+	}
 
-		TriangulatorSimple ts = new TriangulatorSimple (filteredOutline.ToArray ());
-
-		int[] indices = ts.Triangulate ();
-
-		List<Vector3> vertices = new List<Vector3>();
-		for (int i = 0; i < filteredOutline.Count; i++) {
-			vertices.Add (filteredOutline [i]);
+	private void GenerateMeshesFromOutlines(List<List<Vector2>> outlines) {
+		for (int i = 0; i < transform.childCount; i++) {
+			DestroyImmediate (transform.GetChild (i).gameObject, true);
 		}
 
-		mesh = new Mesh ();
-		mesh.SetVertices (vertices);
-		mesh.triangles = indices;
-		mesh.RecalculateBounds ();
-		mesh.RecalculateNormals ();
+		for (int i = 0; i < outlines.Count; i++) {
+			GameObject poolObject = new GameObject ("Pool" + i.ToString ());
+			MeshFilter poolObjectMeshFilter = poolObject.AddComponent<MeshFilter> ();
+			MeshRenderer poolObjectMeshRenderer = poolObject.AddComponent<MeshRenderer> ();
 
-		meshFilter.mesh = mesh;
+			GameObject poolBorderObject = new GameObject ("PoolBorder" + i.ToString ());
+			MeshFilter poolBorderObjectMeshFilter = poolBorderObject.AddComponent<MeshFilter> ();
+			MeshRenderer poolBorderObjectMeshRenderer = poolBorderObject.AddComponent<MeshRenderer> ();
 
-//		DrawPointSequenceDebug ();
+			poolObject.transform.SetParent (transform);
+			poolBorderObject.transform.SetParent (transform);
+
+			Mesh poolBorderMesh = new Mesh ();
+			List<Vector3> poolBorderVertices = new List<Vector3> ();
+			List<int> poolBorderIndices = new List<int> ();
+			for (int j = 0; j < outlines [i].Count - 1; j++) {
+				Vector3 p0 = outlines [i] [j];
+				Vector3 p1 = outlines [i] [j + 1];
+				Vector3 d = Vector3.Cross ((p0 - p1).normalized, Vector3.forward);
+
+				Vector3 p2 = p0 + d * borderSize;
+				Vector3 p3 = p1 + d * borderSize;
+
+				poolBorderVertices.Add (p0);
+				poolBorderVertices.Add (p1);
+				poolBorderVertices.Add (p2);
+				poolBorderVertices.Add (p3);
+
+				poolBorderIndices.Add (poolBorderVertices.Count - 4);
+				poolBorderIndices.Add (poolBorderVertices.Count - 2);
+				poolBorderIndices.Add (poolBorderVertices.Count - 3);
+
+				poolBorderIndices.Add (poolBorderVertices.Count - 2);
+				poolBorderIndices.Add (poolBorderVertices.Count - 1);
+				poolBorderIndices.Add (poolBorderVertices.Count - 3);
+
+				if (j > 0) {
+					poolBorderIndices.Add (poolBorderVertices.Count - 4);
+					poolBorderIndices.Add (poolBorderVertices.Count - 5);
+					poolBorderIndices.Add (poolBorderVertices.Count - 2);
+				}
+			}
+
+			poolBorderIndices.Add (poolBorderVertices.Count - 1);
+			poolBorderIndices.Add (0);
+			poolBorderIndices.Add (poolBorderVertices.Count - 3);
+
+			poolBorderIndices.Add (poolBorderVertices.Count - 1);
+			poolBorderIndices.Add (2);
+			poolBorderIndices.Add (0);
+
+			poolBorderMesh.SetVertices (poolBorderVertices);
+			poolBorderMesh.SetTriangles (poolBorderIndices, 0);
+			poolBorderMesh.RecalculateBounds ();
+			poolBorderMesh.RecalculateNormals ();
+
+			poolBorderObjectMeshRenderer.material = poolBorderMaterial;
+			poolBorderObjectMeshFilter.mesh = poolBorderMesh;
+
+			poolObjectMeshRenderer.material = poolMaterial;
+
+			TriangulatorSimple ts = new TriangulatorSimple (outlines[i].ToArray ());
+			int[] triangles = ts.Triangulate ();
+
+			List<Vector3> vertices = new List<Vector3>();
+			for (int j = 0; j < outlines[i].Count; j++) {
+				vertices.Add (outlines [i][j]);
+			}
+
+			Mesh poolMesh = new Mesh ();
+			poolMesh.SetVertices (vertices);
+			poolMesh.triangles = triangles;
+			poolMesh.RecalculateBounds ();
+			poolMesh.RecalculateNormals ();
+	
+			poolObjectMeshFilter.mesh = poolMesh;
+		}
 	}
 
 	private short[,] ReadTextureToMemory(Texture2D t) {
@@ -68,35 +130,38 @@ public class BitmapMesh : MonoBehaviour {
 		return data;
 	}
 
-	private void TraceEdge(short[,] imgData) {
-		bool shouldStop = false;
-		for (int y = 0; y < imgData.GetLength(1); y++) {
-			if (shouldStop) break;
+	private List<List<Vector2>> TraceEdge(short[,] imgData) {
+		List<List<Vector2>> outlines = new List<List<Vector2>> ();
+		visitedCells = new HashSet<int> ();
 
+		for (int y = 0; y < imgData.GetLength(1); y++) {
 			for (int x = 0; x < imgData.GetLength(0); x++) {
 				Cell cell = new Cell (x, y, imgData [x, y]);
 
 				if (cell.value == 0) {
 					List<Cell> numberOfBlackCells = GetNeighbourCellsByValue (cell, 0);
 
-					if (numberOfBlackCells.Count < 8) {
-						FollowEdge (cell);
-						shouldStop = true;
-						break;
+					if (numberOfBlackCells.Count < 8 && !visitedCells.Contains(cell.GetCellIndex())) {
+						List<Vector2> outline = new List<Vector2> ();
+						FollowEdge (outline, cell);
+						ApplyMinPointDistanceToOutline (ref outline, minPointDistance);
+						outlines.Add (outline);
 					}
 				}
 			}
 		}
+
+		return outlines;
 	}
 
-	private void FollowEdge(Cell cell) {
+	private void FollowEdge(List<Vector2> outline, Cell cell) {
 		visitedCells.Add (cell.GetCellIndex());
 		outline.Add (new Vector2 (cell.x * scaleX, cell.y * scaleY));
 
 		Cell edgeCell = GetNextEdgeCell (cell);
 
 		if (edgeCell != null) {
-			FollowEdge (edgeCell);
+			FollowEdge (outline, edgeCell);
 		}
 	}
 
@@ -174,16 +239,16 @@ public class BitmapMesh : MonoBehaviour {
 		return x >= 0 && x < imageData.GetLength(0) && y >= 0 && y < imageData.GetLength(1);
 	}
 
-	private List<Vector2> ApplyMinPointDistanceToOutline(List<Vector2> o, float minDistance) {
+	private void ApplyMinPointDistanceToOutline(ref List<Vector2> outline, float minDistance) {
 		List<Vector2> filteredOutline = new List<Vector2> ();
 		int nextIndex = 0;
 
 		while (nextIndex != -1) {
-			filteredOutline.Add (o [nextIndex]);
-			nextIndex = GetNextMinDistancePointIndex (o, minDistance, nextIndex);
+			filteredOutline.Add (outline [nextIndex]);
+			nextIndex = GetNextMinDistancePointIndex (outline, minDistance, nextIndex);
 		}
 
-		return filteredOutline;
+		outline = filteredOutline;
 	}
 
 	private int GetNextMinDistancePointIndex(List<Vector2> o, float minDistance, int index) {
@@ -199,21 +264,23 @@ public class BitmapMesh : MonoBehaviour {
 	}
 
 	private void DrawPointSequenceDebug() {
-		for(int i=0;i<filteredOutline.Count;i++) {
-			TextMesh tm = Instantiate(textMesh, filteredOutline[i], Quaternion.identity) as TextMesh;
-			tm.text = i.ToString();
-		}
+//		for(int i=0;i<filteredOutline.Count;i++) {
+//			TextMesh tm = Instantiate(textMesh, filteredOutline[i], Quaternion.identity) as TextMesh;
+//			tm.text = i.ToString();
+//		}
 	}
 
 	private void OnDrawGizmos() {
-		if (outline == null) {
-			return;
-		}
-
-		for (int i = 0; i < filteredOutline.Count; i++) {
-			Gizmos.color = Color.black;
-			Gizmos.DrawCube (filteredOutline[i], Vector3.one * 0.03f);
-		}
+//		if (outlines == null) {
+//			return;
+//		}
+//
+//		for (int i = 0; i < outlines.Count; i++) {
+//			for (int j = 0; j < outlines [i].Count; j++) {
+//				Gizmos.color = Color.black;
+//				Gizmos.DrawCube (outlines [i][j], Vector3.one * 0.03f);	
+//			}
+//		}
 	}
 
 }

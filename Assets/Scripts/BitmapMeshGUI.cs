@@ -12,7 +12,7 @@ public class BitmapMeshGUI : Editor {
 		BitmapMesh bitmapMesh = (BitmapMesh) target;
 
 		if (GUILayout.Button ("TraceEdges")) {
-			bitmapMesh.GenerateEdgePoints ();
+			bitmapMesh.GenerateOutlines ();
 		}
 	}
 
