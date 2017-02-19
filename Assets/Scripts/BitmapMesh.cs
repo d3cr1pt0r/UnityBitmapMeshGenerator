@@ -39,8 +39,6 @@ public class BitmapMesh : MonoBehaviour {
 		}
 
 		for (int i = 0; i < outlines.Count; i++) {
-			if (i==0)
-				dbg = new List<Vector3> ();
 			List<Vector2> outline = outlines [i];
 
 			GameObject poolObject = new GameObject ("Pool" + i.ToString ());
@@ -50,10 +48,6 @@ public class BitmapMesh : MonoBehaviour {
 			GameObject poolBorderObject = new GameObject ("PoolBorder" + i.ToString ());
 			MeshFilter poolBorderObjectMeshFilter = poolBorderObject.AddComponent<MeshFilter> ();
 			MeshRenderer poolBorderObjectMeshRenderer = poolBorderObject.AddComponent<MeshRenderer> ();
-
-//			GameObject poolWallObject = new GameObject ("PoolWall" + i.ToString ());
-//			MeshFilter poolWallObjectMeshFilter = poolBorderObject.AddComponent<MeshFilter> ();
-//			MeshRenderer poolWallObjectMeshRenderer = poolBorderObject.AddComponent<MeshRenderer> ();
 
 			poolObject.transform.SetParent (transform);
 			poolBorderObject.transform.SetParent (transform);
