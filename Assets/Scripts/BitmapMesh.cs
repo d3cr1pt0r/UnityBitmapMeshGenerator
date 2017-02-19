@@ -93,8 +93,6 @@ public class BitmapMesh : MonoBehaviour {
 				poolBorderVertices.Add (pMid + Vector3.forward * - poolHeight);
 				poolBorderVertices.Add (pm + Vector3.forward * - poolHeight);
 
-				Debug.Log ((float)j / (float)(outline.Count-1));
-
 				poolBorderUvs.Add (new Vector2((float)j / (float)(outline.Count-1), 0.0f));
 				poolBorderUvs.Add (new Vector2((float)j / (float)(outline.Count-1), 1.0f));
 
