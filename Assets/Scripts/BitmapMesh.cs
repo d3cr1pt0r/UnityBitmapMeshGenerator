@@ -1,10 +1,9 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using Delaunay;
-using Delaunay.Geo;
 
-public class BitmapMesh : MonoBehaviour {
+public class BitmapMesh : MonoBehaviour
+{
 
 	[SerializeField] private Texture2D bitmapTexture = null;
 	[SerializeField] private Material poolMaterial = null;
@@ -23,9 +22,8 @@ public class BitmapMesh : MonoBehaviour {
 	private HashSet<int> visitedCells;
 	private List<Vector3> dbg = new List<Vector3> ();
 
-	List<LineSegment> t = new List<LineSegment>();
-
-	public void GenerateOutlines() {
+	public void GenerateOutlines ()
+	{
 		if (bitmapTexture == null) {
 			return;
 		}
@@ -35,7 +33,8 @@ public class BitmapMesh : MonoBehaviour {
 		GenerateMeshesFromOutlines (outlines);
 	}
 
-	private void GenerateMeshesFromOutlines(List<List<Vector2>> outlines) {
+	private void GenerateMeshesFromOutlines (List<List<Vector2>> outlines)
+	{
 		for (int i = 0; i < transform.childCount; i++) {
 			DestroyImmediate (transform.GetChild (i).gameObject, true);
 		}
@@ -79,8 +78,8 @@ public class BitmapMesh : MonoBehaviour {
 				int fw = (j + 1) % (outline.Count);
 				int bw = (outline.Count - 1 + j) % (outline.Count);
 
-				Vector3 pMid = outline[mid];
-				Vector3 pFw = outline[fw];
+				Vector3 pMid = outline [mid];
+				Vector3 pFw = outline [fw];
 				Vector3 pBw = outline [bw];
 
 				Vector3 d0 = Vector3.Cross ((pFw - pMid).normalized, Vector3.forward);
@@ -90,14 +89,14 @@ public class BitmapMesh : MonoBehaviour {
 				Vector3 p1 = pMid + d1 * borderSize;
 				Vector3 pm = p0 + ((p1 - p0) * 0.5f);
 
-				poolBorderVertices.Add (pMid + Vector3.forward * - poolHeight);
-				poolBorderVertices.Add (pm + Vector3.forward * - poolHeight);
+				poolBorderVertices.Add (pMid + Vector3.forward * -poolHeight);
+				poolBorderVertices.Add (pm + Vector3.forward * -poolHeight);
 
-				poolBorderUvs.Add (new Vector2((float)j / (float)(outline.Count-1), 0.0f));
-				poolBorderUvs.Add (new Vector2((float)j / (float)(outline.Count-1), 1.0f));
+				poolBorderUvs.Add (new Vector2 ((float)j / (float)(outline.Count - 1), 0.0f));
+				poolBorderUvs.Add (new Vector2 ((float)j / (float)(outline.Count - 1), 1.0f));
 
 				poolWallVertices.Add (pMid);
-				poolWallVertices.Add (pMid + Vector3.forward * - poolHeight);
+				poolWallVertices.Add (pMid + Vector3.forward * -poolHeight);
 
 				if (j > 0) {
 					poolBorderTriangles.Add (poolBorderVertices.Count - 2);
@@ -165,9 +164,9 @@ public class BitmapMesh : MonoBehaviour {
 			TriangulatorSimple ts = new TriangulatorSimple (outline.ToArray ());
 			int[] triangles = ts.Triangulate ();
 
-			List<Vector3> vertices = new List<Vector3>();
+			List<Vector3> vertices = new List<Vector3> ();
 			for (int j = 0; j < outline.Count; j++) {
-				vertices.Add (outline[j]);
+				vertices.Add (outline [j]);
 			}
 
 			Mesh poolMesh = new Mesh ();
@@ -180,32 +179,34 @@ public class BitmapMesh : MonoBehaviour {
 		}
 	}
 
-	private short[,] ReadTextureToMemory(Texture2D t) {
+	private short[,] ReadTextureToMemory (Texture2D t)
+	{
 		short[,] data = new short[t.width, t.height];
 		int width = bitmapTexture.width;
 		int height = bitmapTexture.height;
 
 		for (int y = 0; y < height; y++) {
 			for (int x = 0; x < width; x++) {
-				data [x, y] = (short) bitmapTexture.GetPixel (x, y).r;
+				data [x, y] = (short)bitmapTexture.GetPixel (x, y).r;
 			}
 		}
 
 		return data;
 	}
 
-	private List<List<Vector2>> TraceEdge(short[,] imgData) {
+	private List<List<Vector2>> TraceEdge (short[,] imgData)
+	{
 		List<List<Vector2>> outlines = new List<List<Vector2>> ();
 		visitedCells = new HashSet<int> ();
 
-		for (int y = 0; y < imgData.GetLength(1); y++) {
-			for (int x = 0; x < imgData.GetLength(0); x++) {
+		for (int y = 0; y < imgData.GetLength (1); y++) {
+			for (int x = 0; x < imgData.GetLength (0); x++) {
 				Cell cell = new Cell (x, y, imgData [x, y]);
 
 				if (cell.value == 0) {
 					List<Cell> numberOfBlackCells = GetNeighbourCellsByValue (cell, 0);
 
-					if (numberOfBlackCells.Count < 8 && !visitedCells.Contains(cell.GetCellIndex())) {
+					if (numberOfBlackCells.Count < 8 && !visitedCells.Contains (cell.GetCellIndex ())) {
 						List<Vector2> outline = new List<Vector2> ();
 						FollowEdge (outline, cell);
 						ApplyMinPointDistanceToOutline (ref outline, minPointDistance);
@@ -218,8 +219,9 @@ public class BitmapMesh : MonoBehaviour {
 		return outlines;
 	}
 
-	private void FollowEdge(List<Vector2> outline, Cell cell) {
-		visitedCells.Add (cell.GetCellIndex());
+	private void FollowEdge (List<Vector2> outline, Cell cell)
+	{
+		visitedCells.Add (cell.GetCellIndex ());
 		outline.Add (new Vector2 (cell.x * scaleX, cell.y * scaleY));
 
 		Cell edgeCell = GetNextEdgeCell (cell);
@@ -229,11 +231,12 @@ public class BitmapMesh : MonoBehaviour {
 		}
 	}
 
-	private Cell GetNextEdgeCell(Cell cell) {
+	private Cell GetNextEdgeCell (Cell cell)
+	{
 		List<Cell> neighbourBlackCells = GetNeighbourCellsByValue (cell, 0);
 
 		for (int i = 0; i < neighbourBlackCells.Count; i++) {
-			if (!visitedCells.Contains (neighbourBlackCells[i].GetCellIndex())) {
+			if (!visitedCells.Contains (neighbourBlackCells [i].GetCellIndex ())) {
 				if (HasEmptyNeighbour (neighbourBlackCells [i])) {
 					return neighbourBlackCells [i];
 				}
@@ -243,19 +246,20 @@ public class BitmapMesh : MonoBehaviour {
 		return null;
 	}
 
-	private List<Cell> GetNeighbourCells(Cell cell) {
+	private List<Cell> GetNeighbourCells (Cell cell)
+	{
 		List<Cell> cells = new List<Cell> ();
 
 		Vector2[] positionsToCheck = new Vector2[] {
-			new Vector2(0, 1),		new Vector2(1, 0),
-			new Vector2(0, -1),		new Vector2(-1, 0),
-			new Vector2(1, 1),		new Vector2(1, -1),
-			new Vector2(-1, -1),	new Vector2(-1, 1),
+			new Vector2 (0, 1),		new Vector2 (1, 0),
+			new Vector2 (0, -1),		new Vector2 (-1, 0),
+			new Vector2 (1, 1),		new Vector2 (1, -1),
+			new Vector2 (-1, -1),	new Vector2 (-1, 1),
 		};
 
 		for (int i = 0; i < positionsToCheck.Length; i++) {
-			int ix = cell.x + (int) positionsToCheck[i].x;
-			int iy = cell. y + (int) positionsToCheck [i].y;
+			int ix = cell.x + (int)positionsToCheck [i].x;
+			int iy = cell.y + (int)positionsToCheck [i].y;
 
 			if (IsInBounds (ix, iy)) {
 				cells.Add (new Cell (ix, iy, imageData [ix, iy]));
@@ -265,21 +269,22 @@ public class BitmapMesh : MonoBehaviour {
 		return cells;
 	}
 
-	private List<Cell> GetNeighbourCellsByValue(Cell cell, short value) {
+	private List<Cell> GetNeighbourCellsByValue (Cell cell, short value)
+	{
 		List<Cell> cells = new List<Cell> ();
 
 		Vector2[] positionsToCheck = new Vector2[] {
-			new Vector2(0, 1),		new Vector2(1, 0),
-			new Vector2(0, -1),		new Vector2(-1, 0),
-			new Vector2(1, 1),		new Vector2(1, -1),
-			new Vector2(-1, -1),	new Vector2(-1, 1),
+			new Vector2 (0, 1),		new Vector2 (1, 0),
+			new Vector2 (0, -1),		new Vector2 (-1, 0),
+			new Vector2 (1, 1),		new Vector2 (1, -1),
+			new Vector2 (-1, -1),	new Vector2 (-1, 1),
 		};
 
 		for (int i = 0; i < positionsToCheck.Length; i++) {
-			int ix = cell.x + (int) positionsToCheck[i].x;
-			int iy = cell.y + (int) positionsToCheck [i].y;
+			int ix = cell.x + (int)positionsToCheck [i].x;
+			int iy = cell.y + (int)positionsToCheck [i].y;
 
-			if (IsInBounds (ix, iy) && imageData[ix, iy] == value) {
+			if (IsInBounds (ix, iy) && imageData [ix, iy] == value) {
 				cells.Add (new Cell (ix, iy, imageData [ix, iy]));
 			}
 		}
@@ -287,7 +292,8 @@ public class BitmapMesh : MonoBehaviour {
 		return cells;
 	}
 
-	private bool HasEmptyNeighbour(Cell cell) {
+	private bool HasEmptyNeighbour (Cell cell)
+	{
 		List<Cell> cells = GetNeighbourCells (cell);
 
 		for (int i = 0; i < cells.Count; i++) {
@@ -299,11 +305,13 @@ public class BitmapMesh : MonoBehaviour {
 		return false;
 	}
 
-	private bool IsInBounds(int x, int y) {
-		return x >= 0 && x < imageData.GetLength(0) && y >= 0 && y < imageData.GetLength(1);
+	private bool IsInBounds (int x, int y)
+	{
+		return x >= 0 && x < imageData.GetLength (0) && y >= 0 && y < imageData.GetLength (1);
 	}
 
-	private void ApplyMinPointDistanceToOutline(ref List<Vector2> outline, float minDistance) {
+	private void ApplyMinPointDistanceToOutline (ref List<Vector2> outline, float minDistance)
+	{
 		List<Vector2> filteredOutline = new List<Vector2> ();
 		int nextIndex = 0;
 
@@ -315,7 +323,8 @@ public class BitmapMesh : MonoBehaviour {
 		outline = filteredOutline;
 	}
 
-	private int GetNextMinDistancePointIndex(List<Vector2> o, float minDistance, int index) {
+	private int GetNextMinDistancePointIndex (List<Vector2> o, float minDistance, int index)
+	{
 		Vector2 p = o [index];
 		for (int i = index; i < o.Count; i++) {
 			float distance = Vector2.Distance (p, o [i]);
@@ -327,14 +336,16 @@ public class BitmapMesh : MonoBehaviour {
 		return -1;
 	}
 
-	private void DrawPointSequenceDebug() {
+	private void DrawPointSequenceDebug ()
+	{
 //		for(int i=0;i<filteredOutline.Count;i++) {
 //			TextMesh tm = Instantiate(textMesh, filteredOutline[i], Quaternion.identity) as TextMesh;
 //			tm.text = i.ToString();
 //		}
 	}
 
-	private void OnDrawGizmos() {
+	private void OnDrawGizmos ()
+	{
 //		for (int i = 0; i < dbg.Count; i++) {
 //			Gizmos.color = Color.black;
 //			Gizmos.DrawCube (dbg [i], Vector3.one * 0.05f);	
